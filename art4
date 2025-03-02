@@ -1,0 +1,86 @@
+import logging
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
+
+# Вставьте сюда свой токен
+TELEGRAM_TOKEN = "your_telegram_bot_token"
+
+# Устанавливаем логирование
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Сообщение с номером карты
+CARD_NUMBER = "your_card_number"  # Ваш номер карты или QR-код
+
+# Стартовое сообщение с инструкциями
+async def start(update: Update, context: CallbackContext) -> None:
+    user = update.message.from_user
+    # Кнопки для удобства
+    keyboard = [
+        [KeyboardButton("Как перевести деньги?"), KeyboardButton("Что делать после перевода?")]
+    ]
+    reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True)
+    await update.message.reply_text(
+        f"Привет, {user.first_name}! Для получения курса переведите деньги на карту {CARD_NUMBER}. "
+        "После перевода напишите мне сумму и время перевода, и я отправлю вам курс.",
+        reply_markup=reply_markup
+    )
+
+# Подтверждение получения денег и дополнительные инструкции
+async def confirm_payment(update: Update, context: CallbackContext) -> None:
+    user_id = update.message.from_user.id
+    payment_details = update.message.text  # Пользователь отправляет подтверждение перевода
+    
+    # Проверяем, не является ли сообщение запросом о переводе
+    if "Как перевести деньги?" in payment_details:
+        await update.message.reply_text(
+            f"Для перевода денег используйте следующий номер карты: {CARD_NUMBER}. "
+            "Просто переведите нужную сумму и сообщите мне дату и сумму перевода, чтобы я мог отправить вам курс."
+        )
+        return
+
+    if "Что делать после перевода?" in payment_details:
+        await update.message.reply_text(
+            "После перевода сообщите мне сумму и время перевода, чтобы я мог подтвердить ваш платеж и отправить курс."
+        )
+        return
+
+    # Обработка реального подтверждения перевода
+    if payment_details:
+        # Допустим, пользователь сообщил сумму и время
+        # Можно улучшить проверку данных, например, с использованием регулярных выражений
+        await update.message.reply_text(
+            "Спасибо за подтверждение! Мы проверяем ваш перевод. Пожалуйста, подождите..."
+        )
+
+        # Симуляция проверки перевода (например, проверка через API банка)
+        # В реальном случае здесь будет логика для проверки транзакции
+
+        # Ответ пользователю
+        await update.message.reply_text("Ваш перевод подтвержден. Вот ссылка на курс: [ссылка на курс]")
+
+# Основной обработчик ошибок
+async def error(update: Update, context: CallbackContext) -> None:
+    logger.warning('Update "%s" caused error "%s"', update, context.error)
+    await update.message.reply_text("Произошла ошибка. Попробуйте снова.")
+
+# Основная функция для запуска бота
+def main() -> None:
+    application = Application.builder().token(TELEGRAM_TOKEN).build()
+
+    # Получаем диспетчера для добавления обработчиков
+    dispatcher = application.add_handler
+
+    # Обработчики команд
+    dispatcher(CommandHandler('start', start))
+    dispatcher(MessageHandler(filters.TEXT & ~filters.COMMAND, confirm_payment))
+
+    # Обработчик ошибок
+    application.add_error_handler(error)
+
+    # Запускаем бота
+    application.run_polling()
+
+if __name__ == '__main__':
+    main()
